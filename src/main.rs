@@ -5,6 +5,7 @@ use std::{
 };
 
 fn main() {
+    // loads .env variables
     dotenv().ok();
     let bakalari_url = std::env::var("BAKALARI_URL").expect("Chybí url v .env souboru");
     let refresh_interval = Duration::from_millis(std::env::var("MS_SLEEP_BETWEEN_CHECKS")
@@ -12,11 +13,18 @@ fn main() {
         .parse::<u64>()
         .unwrap_or(600000)
     );
-    println!("{bakalari_url}");
+    // main loop
     loop {
-        thread::spawn(|| {
-            println!("printing from thread") // debug
+        // spawns thread to contact bakaláři server
+        let url_clone = bakalari_url.clone();
+        thread::spawn(move || {
+            // sends a get request to the API
+            let response = reqwest::blocking::get(url_clone);
+            let response_status = response.unwrap().status();
+            if response_status == 200 { println!("good") }
         });
+
+        // waits desired ammount of time before contacting again
         thread::sleep(refresh_interval);
     }
 }
