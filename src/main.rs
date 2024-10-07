@@ -15,6 +15,7 @@ fn main() {
         .parse::<u64>()
         .unwrap_or(600000)
     );
+    println!("logging...");
     // main loop
     loop {
         // spawns thread to contact bakaláři server
@@ -22,7 +23,6 @@ fn main() {
         thread::spawn(move || {
             // logs time of request
             let request_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
-            println!("{}", request_time);
             // sends a get request to the API
             let response = reqwest::blocking::get(url_clone);
             let response_status = response.unwrap().status();
@@ -31,7 +31,7 @@ fn main() {
 
             // file logging part
             // opens log, creates if doesnt exist
-            let mut log_file = OpenOptions::new()
+            let log_file = OpenOptions::new()
                 .read(true)
                 .append(true)
                 .create(true)
