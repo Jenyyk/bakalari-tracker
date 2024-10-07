@@ -1,7 +1,9 @@
 use dotenv::dotenv;
 use std::{
     thread,
-    time::Duration
+    time::{Duration, SystemTime, UNIX_EPOCH},
+    fs::OpenOptions,
+    io::Write
 };
 
 fn main() {
@@ -18,10 +20,35 @@ fn main() {
         // spawns thread to contact bakaláři server
         let url_clone = bakalari_url.clone();
         thread::spawn(move || {
+            // logs time of request
+            let request_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
+            println!("{}", request_time);
             // sends a get request to the API
             let response = reqwest::blocking::get(url_clone);
             let response_status = response.unwrap().status();
-            if response_status == 200 { println!("good") }
+            // checks if response is good
+
+
+            // file logging part
+            // opens log, creates if doesnt exist
+            let mut log_file = OpenOptions::new()
+                .read(true)
+                .append(true)
+                .create(true)
+                .open("log.csv");
+
+            // combines all outputs into string
+            let mut result = String::new();
+            result.push_str(&request_time.to_string());
+            result.push_str(",");
+            if response_status == 200 { result.push_str("True"); }
+            else { result.push_str("False"); }
+            result.push_str(",");
+            result.push_str(&response_status.to_string());
+            result.push('\n');
+
+            // writes into file
+            log_file.expect("failed opening").write(result.as_bytes()).expect("failed writing");
         });
 
         // waits desired ammount of time before contacting again
