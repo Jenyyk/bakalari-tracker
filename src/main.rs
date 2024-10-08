@@ -2,7 +2,7 @@ use dotenv::dotenv;
 use std::{
     thread,
     time::{Duration, SystemTime, UNIX_EPOCH},
-    fs::{File, OpenOptions},
+    fs::{File, OpenOptions, create_dir_all},
     io::Write
 };
 use daemonize::Daemonize;
@@ -10,24 +10,35 @@ use daemonize::Daemonize;
 fn main() {
     // loads .env variables
     dotenv().ok();
-    let bakalari_url = std::env::var("BAKALARI_URL").expect("Chybí url v .env souboru");
+    // checks if url exists, screams at user if not
+    let bakalari_url = match std::env::var("BAKALARI_URL") {
+        Ok(url) => url,
+        Err(e) => {
+            println!("Čtení url selhalo, je buď neplatné, nebo chybí");
+            println!("{}",e);
+            thread::sleep(Duration::from_secs(10));
+            "".to_string()
+        },
+    };
+
     let refresh_interval = Duration::from_millis(std::env::var("MS_SLEEP_BETWEEN_CHECKS")
         .expect("Chybí čas spaní v .env souboru")
         .parse::<u64>()
         .unwrap_or(600000));
 
     // creating a daemon to run in the background
+    let _ = create_dir_all("./tmp");
     let stdout = File::create("tmp/daemon.out").unwrap();
     let stderr = File::create("tmp/daemon.err").unwrap();
 
-    println!("Starting daemon and logging...");
+    println!("Spouštím Daemon a logguju...");
     let daemonize = Daemonize::new()
         .working_directory("./")
         .pid_file("tmp/bakalari_tracker.pid")
         .stdout(stdout)
         .stderr(stderr)
         .umask(0o027);
-    daemonize.start().expect("Failed to start daemon");
+    daemonize.start().expect("Spouštění Daemonu selhalo");
 
     // main loop
     loop {
