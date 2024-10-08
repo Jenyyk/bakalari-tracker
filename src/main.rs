@@ -2,9 +2,10 @@ use dotenv::dotenv;
 use std::{
     thread,
     time::{Duration, SystemTime, UNIX_EPOCH},
-    fs::OpenOptions,
+    fs::{File, OpenOptions},
     io::Write
 };
+use daemonize::Daemonize;
 
 fn main() {
     // loads .env variables
@@ -13,9 +14,21 @@ fn main() {
     let refresh_interval = Duration::from_millis(std::env::var("MS_SLEEP_BETWEEN_CHECKS")
         .expect("Chybí čas spaní v .env souboru")
         .parse::<u64>()
-        .unwrap_or(600000)
-    );
-    println!("logging...");
+        .unwrap_or(600000));
+
+    // creating a daemon to run in the background
+    let stdout = File::create("tmp/daemon.out").unwrap();
+    let stderr = File::create("tmp/daemon.err").unwrap();
+
+    println!("Starting daemon and logging...");
+    let daemonize = Daemonize::new()
+        .working_directory("./")
+        .pid_file("tmp/bakalari_tracker.pid")
+        .stdout(stdout)
+        .stderr(stderr)
+        .umask(0o027);
+    daemonize.start().expect("Failed to start daemon");
+
     // main loop
     loop {
         // spawns thread to contact bakaláři server
