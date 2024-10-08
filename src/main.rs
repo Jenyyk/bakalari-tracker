@@ -2,10 +2,9 @@ use dotenv::dotenv;
 use std::{
     thread,
     time::{Duration, SystemTime, UNIX_EPOCH},
-    fs::{File, OpenOptions, create_dir_all},
+    fs::OpenOptions,
     io::Write
 };
-use daemonize::Daemonize;
 
 fn main() {
     // loads .env variables
@@ -27,18 +26,27 @@ fn main() {
         .unwrap_or(600000));
 
     // creating a daemon to run in the background
-    let _ = create_dir_all("./tmp");
-    let stdout = File::create("tmp/daemon.out").unwrap();
-    let stderr = File::create("tmp/daemon.err").unwrap();
+    // !ONLY FOR UNIX SYSTEMS (fuck windows (written from windows))
+    #[cfg(unix)]
+    {
+        use daemonize::Daemonize;
+        use std::fs::{File, create_dir_all};
 
-    println!("Spouštím Daemon a logguju...");
-    let daemonize = Daemonize::new()
+        let _ = create_dir_all("./tmp");
+        let stdout = File::create("tmp/daemon.out").unwrap();
+        let stderr = File::create("tmp/daemon.err").unwrap();
+
+        println!("Spouštím Daemon a logguju...");
+        let daemonize = Daemonize::new()
         .working_directory("./")
         .pid_file("tmp/bakalari_tracker.pid")
         .stdout(stdout)
         .stderr(stderr)
         .umask(0o027);
-    daemonize.start().expect("Spouštění Daemonu selhalo");
+        daemonize.start().expect("Spouštění Daemonu selhalo");
+    }
+    #[cfg(windows)]
+    println!("Daemon není k dispozici na windows, womp womp");
 
     // main loop
     loop {
