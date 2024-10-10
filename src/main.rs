@@ -5,6 +5,7 @@ use std::{
     fs::OpenOptions,
     io::Write
 };
+use http::StatusCode;
 
 fn main() {
     // loads .env variables
@@ -57,8 +58,12 @@ fn main() {
             let request_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
             // sends a get request to the API
             let response = reqwest::blocking::get(url_clone);
-            let response_status = response.unwrap().status();
             // checks if response is good
+            let response_status = match response {
+                Ok(res) => res.status(),
+                // error is usually only caused by timeout, so return timeout error code
+                Err(_e) => StatusCode::from_u16(408).unwrap(),
+            };
 
 
             // file logging part
