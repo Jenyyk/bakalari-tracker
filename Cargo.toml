@@ -5,13 +5,11 @@ edition = "2021"
 
 [dependencies]
 dotenv = "0.15.0"
-reqwest = { version = "0.12.8", features = ["blocking"] }
+reqwest = { version = "0.12.8", features = ["blocking", "json"] }
 futures-io = "0.3.30"
 http = "1.1.0"
 openssl = { version = "0.10", features = ["vendored"] }
+serde_json = "1.0.132"
 
 [target.'cfg(unix)'.dependencies]
 daemonize = "0.5.0"
-
-[target.armv7-linux-androideabi]
-linker = "/home/jan/android-ndk/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang"

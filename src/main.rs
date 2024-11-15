@@ -3,14 +3,17 @@ use std::{
     thread,
     time::{Duration, SystemTime, UNIX_EPOCH},
     fs::OpenOptions,
-    io::Write
+    io::Write,
+    sync::{Arc, Mutex}
 };
 use http::StatusCode;
+
+mod webhook;
 
 fn main() {
     // loads .env variables
     dotenv().ok();
-    // checks if url exists, screams at user if not
+    // checks and loads the url, if exists, screams at user if not
     let bakalari_url = match std::env::var("BAKALARI_URL") {
         Ok(url) => url,
         Err(e) => {
@@ -21,10 +24,24 @@ fn main() {
         },
     };
 
+    // checks and loads the refresh interval, if exists
     let refresh_interval = Duration::from_millis(std::env::var("MS_SLEEP_BETWEEN_CHECKS")
         .expect("Chybí čas spaní v .env souboru")
         .parse::<u64>()
         .unwrap_or(600000));
+
+    // loads optional notification channel url
+    let mut discord_url: String = "".to_string();
+    match std::env::var("DISCORD_NOTIF_URL") {
+        Ok(url) => discord_url = url,
+        Err(_) => {},
+    };
+    let mut discord_msg: String = "change".to_string();
+    match std::env::var("DISCORD_NOTIF_MSG") {
+        Ok(msg) => discord_msg = msg,
+        Err(_) => {},
+    };
+
 
     // creating a daemon to run in the background
     // !ONLY FOR UNIX SYSTEMS (fuck windows (written from windows))
@@ -49,10 +66,18 @@ fn main() {
     #[cfg(windows)]
     println!("Daemon není k dispozici na windows, womp womp");
 
+    // creating a shared state to check for changes
+    let last_response = Arc::new(Mutex::new(None));
+
     // main loop
     loop {
-        // spawns thread to contact bakaláři server
+        // clones all variables for threads
         let url_clone = bakalari_url.clone();
+        let discord_url_clone = discord_url.clone();
+        let discord_msg_clone = discord_msg.clone();
+        let last_response_clone = Arc::clone(&last_response);
+
+        // spawns thread to contact bakaláři server
         thread::spawn(move || {
             // logs time of request
             let request_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
@@ -86,6 +111,19 @@ fn main() {
 
             // writes into file
             log_file.expect("failed opening").write(result.as_bytes()).expect("failed writing");
+
+            // lock the shared state of last check
+            let mut last = last_response_clone.lock().unwrap();
+
+            // sending a crash notification
+            if let Some(last_response) = &*last {
+                if *last_response != response_status && response_status != 200 && discord_url_clone != "" {
+                    let _ = webhook::send_webhook(&discord_url_clone, &discord_msg_clone);
+                }
+            }
+
+            // update shared state
+            *last = Some(response_status);
         });
 
         // waits desired ammount of time before contacting again
